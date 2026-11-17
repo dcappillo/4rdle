@@ -5,3 +5,6 @@ __pycache__/
 Thumbs.db
 .idea/
 .vscode/
+
+# Local Netlify folder
+.netlify
