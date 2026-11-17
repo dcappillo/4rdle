@@ -884,14 +884,6 @@ function setStatus(state, msg) {
   document.getElementById('statusText').textContent = msg;
 }
 
-function onFilterChange() {
-  // If not running, just re-render current results against new filter
-  if (!isRunning) {
-    vsInit();
-  }
-  // If running, the active filter is already snapshotted — live changes apply next run
-}
-
 // ── Worker source — streams results in chunks, never sends one giant payload ──
 const WORKER_SRC = `
 self.onmessage = function(e) {
@@ -1068,9 +1060,8 @@ function startSearch() {
     };
 
     w.onerror = function(err) {
-      clearInterval(timerInterval);
-      setStatus('error', 'Worker error: ' + err.message);
       stopSearch();
+      setStatus('error', 'Worker error: ' + err.message);
     };
 
     w.postMessage({ words: WORD_LIST, mode: currentMode, startIndices: slices[wi], workerIdx: wi });
@@ -1086,6 +1077,7 @@ function stopSearch() {
   setStatus('idle', `Stopped. ${solutionCount.toLocaleString()} solutions found, ${allSolutions.length.toLocaleString()} stored.`);
   document.getElementById('runBtn').disabled = false;
   document.getElementById('stopBtn').disabled = true;
+  document.getElementById('searchInput').disabled = false;
   if(allSolutions.length > 0) vsInit();
   if(workerBlobUrl) { workerBlobUrl = null; }
 }
@@ -1099,16 +1091,18 @@ function getMissing(words) {
 const ROW_H = 46;
 const VS_BUFFER = 5;
 let vsScrollTop = 0;
+let vsList = [];   // the list currently on screen (all stored solutions, or a filtered view of them)
 
-function vsInit() {
+function vsInit(list = allSolutions) {
+  vsList = list;
   const grid = document.getElementById('resultsGrid');
   grid.innerHTML = '';
-  if (!allSolutions.length) return;
+  if (!vsList.length) return;
   grid.style.position = 'relative';
   grid.style.overflowY = 'auto';
   const spacer = document.createElement('div');
   spacer.id = 'vsSpacer';
-  spacer.style.height = (allSolutions.length * ROW_H) + 'px';
+  spacer.style.height = (vsList.length * ROW_H) + 'px';
   spacer.style.pointerEvents = 'none';
   grid.appendChild(spacer);
   vsScrollTop = 0;
@@ -1119,15 +1113,15 @@ function vsInit() {
 
 function vsRender() {
   const grid = document.getElementById('resultsGrid');
-  if (!grid || !allSolutions.length) return;
+  if (!grid || !vsList.length) return;
   const viewH = grid.clientHeight || 500;
   const startRow = Math.max(0, Math.floor(vsScrollTop / ROW_H) - VS_BUFFER);
-  const endRow   = Math.min(allSolutions.length - 1, Math.ceil((vsScrollTop + viewH) / ROW_H) + VS_BUFFER);
+  const endRow   = Math.min(vsList.length - 1, Math.ceil((vsScrollTop + viewH) / ROW_H) + VS_BUFFER);
   grid.querySelectorAll('.solution-row').forEach(el => el.remove());
   const frag = document.createDocumentFragment();
-  const padLen = String(allSolutions.length).length;
+  const padLen = String(vsList.length).length;
   for (let idx = startRow; idx <= endRow; idx++) {
-    const words = allSolutions[idx];
+    const words = vsList[idx];
     const missing = getMissing(words);
     const row = document.createElement('div');
     row.className = 'solution-row';
@@ -1157,8 +1151,6 @@ function vsRender() {
   grid.appendChild(frag);
 }
 
-function filterResults() {} // no-op — filtering now happens at search time
-
 function onFilterChange() {
   const q = document.getElementById('searchInput').value.toLowerCase().trim();
   if (isRunning) return; // during search, filter is locked to what was set at start
@@ -1167,14 +1159,10 @@ function onFilterChange() {
     // We have stored solutions (5-word mode, or 4-word with a filter that was active at run time)
     // Re-filter the stored set
     const filtered = q ? allSolutions.filter(ws => ws.some(w => w.includes(q))) : allSolutions;
-    // Temporarily show filtered view
-    const saved = allSolutions;
-    allSolutions = filtered;
     document.getElementById('resultsTitle').textContent = q
       ? `${filtered.length.toLocaleString()} solutions matching "${q}"`
-      : `${saved.length.toLocaleString()} solutions`;
-    vsInit();
-    allSolutions = saved;
+      : `${allSolutions.length.toLocaleString()} solutions`;
+    vsInit(filtered);
   } else if (solutionCount > 0 && currentMode === 4) {
     // 4-word mode ran without a filter — prompt to re-run
     document.getElementById('resultsGrid').innerHTML = `<div class="empty-state"><span class="big">//</span>
