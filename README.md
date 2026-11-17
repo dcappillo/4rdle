@@ -4,7 +4,7 @@ Find every set of N Wordle words that never repeat a letter. Four words cover 20
 
 It started as a question about my own Wordle opener (LIMPS, COWED, GRAVY, THUNK) and turned into a combinatorics problem: how many four-word sets with 20 different letters exist, and which one is actually best?
 
-**Open index.html in any browser** (no install; runs entirely on your device)
+**[Play 4rdle](https://4rdle.netlify.app/)** (no install; runs entirely on your device)
 
 ## What it finds
 
